@@ -292,7 +292,7 @@ import os
 import csv
 import subprocess
 from datetime import datetime
-from tkinter import Tk, filedialog
+from tkinter import Tk, Toplevel, Label, Button, Frame, Text, filedialog, messagebox, simpledialog
 from openpyxl import Workbook, load_workbook
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 
@@ -313,6 +313,107 @@ SUSPICIOUS_REGEX = {
     "time_anomaly": r"(midnight|3am|after hours)",
     "intent_anomaly": r"(no one should know|secret|hidden)",
 }
+
+CUSTOM_KEYWORDS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "custom_keywords.txt")
+
+
+def load_saved_custom_keywords() -> list:
+    """Load custom keywords from the local save file so they persist between runs."""
+    if not os.path.exists(CUSTOM_KEYWORDS_FILE):
+        return []
+
+    try:
+        with open(CUSTOM_KEYWORDS_FILE, "r", encoding="utf-8") as file:
+            loaded = [line.strip().lower() for line in file if line.strip()]
+        return list(dict.fromkeys(loaded))
+    except Exception:
+        return []
+
+
+def save_custom_keywords(keywords: list) -> None:
+    """Persist custom keywords for future runs."""
+    cleaned = []
+    for keyword in keywords:
+        normalized = keyword.strip().lower()
+        if normalized and normalized not in cleaned:
+            cleaned.append(normalized)
+
+    with open(CUSTOM_KEYWORDS_FILE, "w", encoding="utf-8") as file:
+        for keyword in cleaned:
+            file.write(f"{keyword}\n")
+
+
+def prompt_for_keyword_updates(parent=None) -> list:
+    """Prompt the user for custom suspicious keywords without creating a second Tk root."""
+    keyword_summary = "\n\n".join(
+        f"{category}: {', '.join(words)}"
+        for category, words in SUSPICIOUS_KEYWORDS.items()
+        if category != "custom_keywords"
+    )
+
+    info_message = (
+        "Current suspicious keyword categories:\n\n"
+        + keyword_summary
+        + "\n\n"
+        + "These default terms are used before any custom additions."
+    )
+    messagebox.showinfo("Suspicious Keywords", info_message)
+
+    wants_to_add = messagebox.askyesno(
+        "Add custom keywords?",
+        "Would you like to add any custom suspicious phrases before running the analysis?",
+    )
+
+    if not wants_to_add:
+        saved_keywords = load_saved_custom_keywords()
+        if saved_keywords:
+            SUSPICIOUS_KEYWORDS["custom_keywords"] = saved_keywords
+        else:
+            SUSPICIOUS_KEYWORDS.pop("custom_keywords", None)
+        return saved_keywords
+
+    if parent is None:
+        parent = Tk()
+        parent.withdraw()
+
+    custom_keywords = []
+    existing = load_saved_custom_keywords()
+    if existing:
+        custom_keywords.extend(existing)
+
+    while True:
+        prompt = "Enter a suspicious keyword or phrase. Leave blank to finish:"
+        new_keyword = simpledialog.askstring(
+            "Add Custom Keywords",
+            prompt,
+            parent=parent,
+        )
+
+        if new_keyword is None:
+            break
+
+        cleaned = new_keyword.strip().lower()
+        if not cleaned:
+            break
+
+        if cleaned not in custom_keywords:
+            custom_keywords.append(cleaned)
+
+    if custom_keywords:
+        save_custom_keywords(custom_keywords)
+        SUSPICIOUS_KEYWORDS["custom_keywords"] = custom_keywords
+    else:
+        SUSPICIOUS_KEYWORDS.pop("custom_keywords", None)
+        if os.path.exists(CUSTOM_KEYWORDS_FILE):
+            try:
+                os.remove(CUSTOM_KEYWORDS_FILE)
+            except OSError:
+                pass
+
+    if parent and parent.winfo_exists() and parent.winfo_children():
+        pass
+
+    return load_saved_custom_keywords()
 
 # -----------------------------------------
 # Scoring engine
@@ -845,21 +946,27 @@ def analyze_queries_from_file(filename: str):
 # -----------------------------------------
 
 if __name__ == "__main__":
-    # Create a hidden Tkinter root window for file dialog
     root = Tk()
-    root.withdraw()  # Hide the root window
-    
+    root.withdraw()
+
+    custom_keyword_updates = prompt_for_keyword_updates(root)
+    if custom_keyword_updates:
+        SUSPICIOUS_KEYWORDS["custom_keywords"] = list(dict.fromkeys(custom_keyword_updates))
+    else:
+        SUSPICIOUS_KEYWORDS.pop("custom_keywords", None)
+
     # Open file dialog
     filename = filedialog.askopenfilename(
+        parent=root,
         title="Select a queries file",
         filetypes=[("All supported files", "*.xlsx *.xls *.csv *.txt"), ("Excel files", "*.xlsx *.xls"), ("CSV files", "*.csv"), ("Text files", "*.txt"), ("All files", "*.*")],
         defaultextension=".xlsx"
     )
-    
+
     # Analyze if a file was selected
     if filename:
         analyze_queries_from_file(filename)
     else:
         print("No file selected. Exiting.")
-    
+
     root.destroy()
