@@ -293,8 +293,28 @@ import csv
 import subprocess
 from datetime import datetime
 from tkinter import Tk, Toplevel, Label, Button, Frame, Text, filedialog, messagebox, simpledialog
-from openpyxl import Workbook, load_workbook
-from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+
+try:
+    from openpyxl import Workbook, load_workbook
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+except ImportError:  # pragma: no cover - handled gracefully for environments without the dependency
+    Workbook = None
+    load_workbook = None
+    PatternFill = Font = Alignment = Border = Side = None
+
+
+def ensure_openpyxl():
+    """Raise a clear error if Excel support is unavailable."""
+    if Workbook is None or load_workbook is None or PatternFill is None:
+        raise RuntimeError(
+            "openpyxl is required for Excel import/export features. "
+            "Install it with: python -m pip install openpyxl"
+        )
+
+
+# Provide a helpful runtime error only when workbook functionality is used.
+def _openpyxl_unavailable(*args, **kwargs):
+    ensure_openpyxl()
 
 # -----------------------------------------
 # Suspicious pattern definitions
@@ -410,8 +430,11 @@ def prompt_for_keyword_updates(parent=None) -> list:
             except OSError:
                 pass
 
-    if parent and parent.winfo_exists() and parent.winfo_children():
-        pass
+    if parent and parent.winfo_exists():
+        try:
+            parent.mainloop()
+        except Exception:
+            pass
 
     return load_saved_custom_keywords()
 
@@ -470,6 +493,7 @@ def score_query(query: str) -> dict:
 def read_queries_from_excel(filename: str) -> list:
     """Read queries from Excel file (.xlsx or .xls).
     Looks for a 'query' column header and reads queries from that column."""
+    ensure_openpyxl()
     try:
         wb = load_workbook(filename)
         ws = wb.active
@@ -783,6 +807,7 @@ def create_metrics_sheet(wb, metrics: dict):
 
 
 def analyze_queries_from_file(filename: str):
+    ensure_openpyxl()
     # Determine file type and read queries accordingly
     file_ext = os.path.splitext(filename)[1].lower()
     
@@ -890,7 +915,7 @@ def analyze_queries_from_file(filename: str):
         # Print to console
         if result["risk_level"] == "HIGH":
             print("\n" + "!" * 60)
-            print("⚠️  ALERT: HIGH RISK QUERY DETECTED!")
+            print("WARNING: HIGH RISK QUERY DETECTED!")
             print("!" * 60)
         
         print(f"\n=== Query {i} ===")
@@ -927,7 +952,7 @@ def analyze_queries_from_file(filename: str):
     # Save the workbook
     wb.save(excel_filename)
     
-    print(f"\n✓ Analysis complete! Results saved to: {excel_filename}")
+    print(f"\nAnalysis complete! Results saved to: {excel_filename}")
     
     # Open the Excel file
     try:
