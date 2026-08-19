@@ -25,11 +25,11 @@ except ImportError:
 # ==============================================================================
 
 KEYWORDS = {
-    # "exfiltration": ("export", "download all", "extract", "dump", "copy all", "remove audit", "unmonitored", "disable logging", "pst export"),
-    # "privilege": ("admin", "root", "privileged", "elevated", "bypass", "override", "superuser"),
+    "exfiltration": ("export", "download all", "extract", "dump", "copy all", "remove audit", "unmonitored", "disable logging", "pst export"),
+    "privilege": ("admin", "root", "privileged", "elevated", "bypass", "override", "superuser"),
     "confidential": ("salary", "ssn", "social security", "compensation", "bonus", "confidential", "secret", "medical", "password", "passport","Drivers license", "Date of birth","ITIN","Mother's maiden name", "Retirement", "Pension", "Banking","Credit Card", "PIN", "IBAN", "CVV"),
-    # "circumvention": ("evade", "avoid logs", "delete logs", "cover tracks", "hide search", "disable audit"),
-    # "unauthorized": ("executive email", "board mailbox", "legal archive", "ceo", "cfo", "whistleblower", "investigation"),
+    "circumvention": ("evade", "avoid logs", "delete logs", "cover tracks", "hide search", "disable audit"),
+    "unauthorized": ("executive email", "board mailbox", "legal archive", "ceo", "cfo", "whistleblower", "investigation"),
     "custom": ("regulatory", "compliance", "personal email", "legal record", "suspicious")
 }
 
@@ -38,7 +38,6 @@ PATTERNS = {
     "time_anomaly": re.compile(r"(midnight|3am|after\s+hours|off[- ]hours)", re.I),
     "intent_anomaly": re.compile(r"(no\s+one\s+should\s+know|secret|hidden|do\s+not\s+tell)", re.I)
 }
-
 
 def load_queries(path: str) -> list:
     """Extract search queries from .csv, .xlsx, or .txt files."""
